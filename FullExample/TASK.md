@@ -1,7 +1,13 @@
-# Task List - Agentic RAG with Knowledge Graph
+# Task List - Hybrid RAG Reference Architecture
+
+> **⚠️ IMPORTANT: This is a REFERENCE IMPLEMENTATION**
+>
+> **Active Project:** The actual AI PM Agent is in `/ai_pm_agent/` with its own task tracking
+>
+> **Purpose:** This task list shows the development history of the reference architecture
 
 ## Overview
-This document tracks all tasks for building the agentic RAG system with knowledge graph capabilities. Tasks are organized by phase and component.
+This document tracks all tasks that were completed for building this reference Hybrid RAG system. These tasks are shown as examples of what's needed to build a production-ready Hybrid RAG agent.
 
 ---
 

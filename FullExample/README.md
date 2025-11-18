@@ -1,6 +1,14 @@
-# Agentic RAG with Knowledge Graph
+# Hybrid RAG Agent - Reference Architecture
 
-Agentic knowledge retrieval redefined with an AI agent system that combines traditional RAG (vector search) with knowledge graph capabilities to analyze and provide insights about big tech companies and their AI initiatives. The system uses PostgreSQL with pgvector for semantic search and Neo4j with Graphiti for temporal knowledge graphs. The goal is to create Agentic RAG at its finest.
+> **⚠️ IMPORTANT: This is a REFERENCE IMPLEMENTATION**
+>
+> **Active Project:** The actual AI PM Agent for Azure DevOps is in `/ai_pm_agent/`
+>
+> **Purpose:** This directory demonstrates production-ready Hybrid RAG patterns that can be adapted for any domain
+
+This reference implementation shows an AI agent system that combines traditional RAG (vector search) with knowledge graph capabilities. The example uses tech company analysis data, but **the patterns apply to any domain** (work items, support tickets, customer data, etc.).
+
+The system uses PostgreSQL with pgvector for semantic search and Neo4j with Graphiti for temporal knowledge graphs.
 
 Built with:
 
