@@ -1486,11 +1486,9 @@ full-ai-coding-workflow/
 │   ├── tools.md           # Tool design documentation
 │   ├── prompts.md         # System prompt patterns
 │   └── dependencies.md    # Dependency planning
-├── archive/                # Historical files (for reference only)
-│   ├── rag_pipeline/      # Older RAG example
-│   ├── planning/          # Old planning docs
-│   ├── PromptProgression/ # Evolution from bad to perfect prompts
-│   └── leftoff.md         # Phase 1 testing notes
+├── rules examples/         # ADO work item standards and tracking
+│   ├── ADO-work-item-standards.md
+│   └── work-item-tracking.md
 ├── CLAUDE.md              # Global rules for AI assistant
 ├── copy_template.py       # Template deployment script
 └── README.md             # This comprehensive guide
