@@ -1,393 +1,387 @@
-# Hybrid RAG Agent - Reference Architecture
+# Hybrid RAG Agent - Reference Architecture & Template
 
-> **⚠️ IMPORTANT: This is a REFERENCE IMPLEMENTATION**
+> **📚 Production-ready template for building Hybrid RAG agents with Pydantic AI**
 >
-> **Active Project:** The actual AI PM Agent for Azure DevOps is in `/ai_pm_agent/`
+> **What you get:** Semantic search (pgvector) + Keyword search (TSVector) + Knowledge graphs (Neo4j/Graphiti)
 >
-> **Purpose:** This directory demonstrates production-ready Hybrid RAG patterns that can be adapted for any domain
+> **Adaptable to:** Work items, support tickets, compliance documents, customer data, and more
 
-This reference implementation shows an AI agent system that combines traditional RAG (vector search) with knowledge graph capabilities. The example uses tech company analysis data, but **the patterns apply to any domain** (work items, support tickets, customer data, etc.).
+## What is This?
 
-The system uses PostgreSQL with pgvector for semantic search and Neo4j with Graphiti for temporal knowledge graphs.
+This is a **complete, working reference implementation** that combines three powerful retrieval strategies into a single AI agent:
 
-Built with:
+| Strategy | Technology | Use Case |
+|----------|-----------|----------|
+| **Semantic Search** | PostgreSQL + pgvector | Find conceptually similar content |
+| **Keyword Search** | PostgreSQL TSVector | Match exact terminology and technical terms |
+| **Knowledge Graph** | Neo4j + Graphiti | Understand relationships and temporal context |
 
-- Pydantic AI for the AI Agent Framework
-- Graphiti for the Knowledge Graph
-- Postgres with PGVector for the Vector Database
-- Neo4j for the Knowledge Graph Engine (Graphiti connects to this)
-- FastAPI for the Agent API
-- Claude Code for the AI Coding Assistant (See `CLAUDE.md`, `PLANNING.md`, and `TASK.md`)
+## Quick Start (Use This Template)
 
-## Overview
+### Option 1: Quick Test (See It Work)
 
-This system includes three main components:
+```bash
+# 1. Clone and setup
+git clone [your-repo]
+cd FullExample
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 
-1. **Document Ingestion Pipeline**: Processes markdown documents using semantic chunking and builds both vector embeddings and knowledge graph relationships
-2. **AI Agent Interface**: A conversational agent powered by Pydantic AI that can search across both vector database and knowledge graph
-3. **Streaming API**: FastAPI backend with real-time streaming responses and comprehensive search capabilities
+# 2. Set up databases (see Prerequisites below)
+
+# 3. Configure .env (copy from .env.example)
+
+# 4. Ingest sample data
+python -m ingestion.ingest docs/
+
+# 5. Try the CLI
+python cli.py
+
+# 6. Or start the API
+uvicorn agent.api:app --host 0.0.0.0 --port 8058
+```
+
+### Option 2: Adapt for Your Domain
+
+See **[PLANNING.md](./PLANNING.md)** for complete adaptation guide.
+
+**Quick adaptation checklist:**
+1. ✅ Update `sql/schema.sql` - Replace `documents`/`chunks` with your tables
+2. ✅ Update `agent/tools.py` - Rename tools for your domain
+3. ✅ Update `agent/prompts.py` - Add domain expertise
+4. ✅ Update `agent/models.py` - Your Pydantic models
+5. ✅ Update `ingestion/` - How data enters your system
 
 ## Prerequisites
 
+### Required Services
+
+| Service | Purpose | Setup Guide |
+|---------|---------|-------------|
+| **PostgreSQL** | Vector + keyword search | [Neon](https://neon.tech) (easiest) or local Postgres |
+| **Neo4j** | Knowledge graph | [Local-AI-Packaged](https://github.com/coleam00/local-ai-packaged) or Neo4j Desktop |
+| **LLM API** | Agent intelligence | OpenAI, Ollama, Gemini, or OpenRouter |
+
+### Python Requirements
+
 - Python 3.11 or higher
-- PostgreSQL database (such as Neon)
-- Neo4j database (for knowledge graph)
-- LLM Provider API key (OpenAI, Ollama, Gemini, etc.)
+- See `requirements.txt` for dependencies
 
-## Installation
+## Architecture Overview
 
-### 1. Set up a virtual environment
-
-```bash
-# Create and activate virtual environment
-python -m venv venv       # python3 on Linux
-source venv/bin/activate  # On Linux/macOS
-# or
-venv\Scripts\activate     # On Windows
+```
+User Query
+    ↓
+[Pydantic AI Agent] 
+    ↓
+┌───────────────────────────────┐
+│  Choose Search Strategy       │
+│  - Semantic (pgvector)        │
+│  - Keyword (TSVector)         │
+│  - Graph (Neo4j/Graphiti)     │
+│  - Hybrid (all three)         │
+└───────────────────────────────┘
+    ↓
+[Combine & Rank Results]
+    ↓
+[Stream Response to User]
 ```
 
-### 2. Install dependencies
+## Configuration
+
+Create `.env` file:
 
 ```bash
-pip install -r requirements.txt
-```
+# Database (PostgreSQL with pgvector)
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
 
-### 3. Set up required tables in Postgres
-
-Execute the SQL in `sql/schema.sql` to create all necessary tables, indexes, and functions.
-
-Be sure to change the embedding dimensions on lines 31, 67, and 100 based on your embedding model. OpenAI's text-embedding-3-small is 1536 and nomic-embed-text from Ollama is 768 dimensions, for reference.
-
-Note that this script will drop all tables before creating/recreating!
-
-### 4. Set up Neo4j
-
-You have a couple easy options for setting up Neo4j:
-
-#### Option A: Using Local-AI-Packaged (Simplified setup - Recommended)
-1. Clone the repository: `git clone https://github.com/coleam00/local-ai-packaged`
-2. Follow the installation instructions to set up Neo4j through the package
-3. Note the username and password you set in .env and the URI will be bolt://localhost:7687
-
-#### Option B: Using Neo4j Desktop
-1. Download and install [Neo4j Desktop](https://neo4j.com/download/)
-2. Create a new project and add a local DBMS
-3. Start the DBMS and set a password
-4. Note the connection details (URI, username, password)
-
-### 5. Configure environment variables
-
-Create a `.env` file in the project root:
-
-```bash
-# Database Configuration (example Neon connection string)
-DATABASE_URL=postgresql://username:password@ep-example-12345.us-east-2.aws.neon.tech/neondb
-
-# Neo4j Configuration  
+# Neo4j
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
 
-# LLM Provider Configuration (choose one)
-LLM_PROVIDER=openai
+# LLM Configuration
+LLM_PROVIDER=openai  # or ollama, openrouter, gemini
 LLM_BASE_URL=https://api.openai.com/v1
-LLM_API_KEY=sk-your-api-key
+LLM_API_KEY=sk-your-key
 LLM_CHOICE=gpt-4.1-mini
 
 # Embedding Configuration
 EMBEDDING_PROVIDER=openai
-EMBEDDING_BASE_URL=https://api.openai.com/v1
-EMBEDDING_API_KEY=sk-your-api-key
-EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_MODEL=text-embedding-3-small  # 1536 dimensions
 
-# Ingestion Configuration
-INGESTION_LLM_CHOICE=gpt-4.1-nano  # Faster model for processing
-
-# Application Configuration
-APP_ENV=development
-LOG_LEVEL=INFO
-APP_PORT=8058
+# Ingestion (can use cheaper/faster model)
+INGESTION_LLM_CHOICE=gpt-4.1-nano
 ```
 
-For other LLM providers:
+## Usage Examples
+
+### CLI Interface
+
 ```bash
-# Ollama (Local)
+python cli.py
+
+# Ask questions:
+> What are the main topics in the documents?
+> Show me relationships between X and Y
+> Find content about [keyword]
+```
+
+### API Interface
+
+```bash
+# Start server
+uvicorn agent.api:app --host 0.0.0.0 --port 8058
+
+# Test endpoint
+curl -X POST http://localhost:8058/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What information do you have?"}'
+```
+
+### Streaming Example
+
+```python
+import httpx
+
+async with httpx.AsyncClient() as client:
+    async with client.stream(
+        "POST",
+        "http://localhost:8058/chat/stream",
+        json={"message": "Tell me about X"},
+        timeout=60.0
+    ) as response:
+        async for line in response.aiter_lines():
+            if line.startswith("data: "):
+                print(line[6:])
+```
+
+## Key Features
+
+### 1. Three Search Strategies
+
+**Vector Search** - Semantic similarity using embeddings:
+```python
+await vector_search(query="API timeout issues", limit=10)
+```
+
+**Keyword Search** - Exact term matching:
+```python
+await hybrid_search(
+    query="API timeout", 
+    keyword_weight=0.7  # 70% keyword, 30% semantic
+)
+```
+
+**Graph Search** - Relationship traversal:
+```python
+await graph_search(query="How are Epic #123 and Feature #456 related?")
+```
+
+### 2. Flexible LLM Providers
+
+Switch providers by changing `.env`:
+
+```bash
+# OpenAI
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://api.openai.com/v1
+
+# Ollama (local)
 LLM_PROVIDER=ollama
 LLM_BASE_URL=http://localhost:11434/v1
-LLM_API_KEY=ollama
-LLM_CHOICE=qwen2.5:14b-instruct
 
 # OpenRouter
 LLM_PROVIDER=openrouter
 LLM_BASE_URL=https://openrouter.ai/api/v1
-LLM_API_KEY=your-openrouter-key
-LLM_CHOICE=anthropic/claude-3-5-sonnet
 
 # Gemini
 LLM_PROVIDER=gemini
 LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-LLM_API_KEY=your-gemini-key
-LLM_CHOICE=gemini-2.5-flash
 ```
 
-## Quick Start
-
-### 1. Prepare Your Documents
-
-Add your markdown documents to the `documents/` folder:
+### 3. Comprehensive Testing
 
 ```bash
-mkdir -p documents
-# Add your markdown files about tech companies, AI research, etc.
-# Example: documents/google_ai_initiatives.md
-#          documents/microsoft_openai_partnership.md
+# Run all tests
+pytest tests/ -v
+
+# With coverage
+pytest tests/ --cov=agent --cov=ingestion --cov-report=html
+
+# All 58 tests passing
 ```
-
-**Note**: For a comprehensive example with extensive content, you can copy the provided `big_tech_docs` folder:
-```bash
-cp -r big_tech_docs/* documents/
-```
-This includes 21 detailed documents about major tech companies and their AI initiatives. Be aware that processing all these files into the knowledge graph will take significant time (potentially 30+ minutes) due to the computational complexity of entity extraction and relationship building.
-
-### 2. Run Document Ingestion
-
-**Important**: You must run ingestion first to populate the databases before the agent can provide meaningful responses.
-
-```bash
-# Basic ingestion with semantic chunking
-python -m ingestion.ingest
-
-# Clean existing data and re-ingest everything
-python -m ingestion.ingest --clean
-
-# Custom settings for faster processing (no knowledge graph)
-python -m ingestion.ingest --chunk-size 800 --no-semantic --verbose
-```
-
-The ingestion process will:
-- Parse and semantically chunk your documents
-- Generate embeddings for vector search
-- Extract entities and relationships for the knowledge graph
-- Store everything in PostgreSQL and Neo4j
-
-NOTE that this can take a while because knowledge graphs are very computationally expensive!
-
-### 3. Configure Agent Behavior (Optional)
-
-Before running the API server, you can customize when the agent uses different tools by modifying the system prompt in `agent/prompts.py`. The system prompt controls:
-- When to use vector search vs knowledge graph search
-- How to combine results from different sources
-- The agent's reasoning strategy for tool selection
-
-### 4. Start the API Server (Terminal 1)
-
-```bash
-# Start the FastAPI server
-python -m agent.api
-
-# Server will be available at http://localhost:8058
-```
-
-### 5. Use the Command Line Interface (Terminal 2)
-
-The CLI provides an interactive way to chat with the agent and see which tools it uses for each query.
-
-```bash
-# Start the CLI in a separate terminal from the API (connects to default API at http://localhost:8058)
-python cli.py
-
-# Connect to a different URL
-python cli.py --url http://localhost:8058
-
-# Connect to a specific port
-python cli.py --port 8080
-```
-
-#### CLI Features
-
-- **Real-time streaming responses** - See the agent's response as it's generated
-- **Tool usage visibility** - Understand which tools the agent used:
-  - `vector_search` - Semantic similarity search
-  - `graph_search` - Knowledge graph queries
-  - `hybrid_search` - Combined search approach
-- **Session management** - Maintains conversation context
-- **Color-coded output** - Easy to read responses and tool information
-
-#### Example CLI Session
-
-```
-🤖 Agentic RAG with Knowledge Graph CLI
-============================================================
-Connected to: http://localhost:8058
-
-You: What are Microsoft's AI initiatives?
-
-🤖 Assistant:
-Microsoft has several major AI initiatives including...
-
-🛠 Tools Used:
-  1. vector_search (query='Microsoft AI initiatives', limit=10)
-  2. graph_search (query='Microsoft AI projects')
-
-────────────────────────────────────────────────────────────
-
-You: How is Microsoft connected to OpenAI?
-
-🤖 Assistant:
-Microsoft has a significant strategic partnership with OpenAI...
-
-🛠 Tools Used:
-  1. hybrid_search (query='Microsoft OpenAI partnership', limit=10)
-  2. get_entity_relationships (entity='Microsoft')
-```
-
-#### CLI Commands
-
-- `help` - Show available commands
-- `health` - Check API connection status
-- `clear` - Clear current session
-- `exit` or `quit` - Exit the CLI
-
-### 6. Test the System
-
-#### Health Check
-```bash
-curl http://localhost:8058/health
-```
-
-#### Chat with the Agent (Non-streaming)
-```bash
-curl -X POST "http://localhost:8058/chat" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "What are Google'\''s main AI initiatives?"
-  }'
-```
-
-#### Streaming Chat
-```bash
-curl -X POST "http://localhost:8058/chat/stream" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Compare Microsoft and Google'\''s AI strategies",
-  }'
-```
-
-## How It Works
-
-### The Power of Hybrid RAG + Knowledge Graph
-
-This system combines the best of both worlds:
-
-**Vector Database (PostgreSQL + pgvector)**:
-- Semantic similarity search across document chunks
-- Fast retrieval of contextually relevant information
-- Excellent for finding documents about similar topics
-
-**Knowledge Graph (Neo4j + Graphiti)**:
-- Temporal relationships between entities (companies, people, technologies)
-- Graph traversal for discovering connections
-- Perfect for understanding partnerships, acquisitions, and evolution over time
-
-**Intelligent Agent**:
-- Automatically chooses the best search strategy
-- Combines results from both databases
-- Provides context-aware responses with source citations
-
-### Example Queries
-
-The system excels at queries that benefit from both semantic search and relationship understanding:
-
-- **Semantic Questions**: "What AI research is Google working on?" 
-  - Uses vector search to find relevant document chunks about Google's AI research
-
-- **Relationship Questions**: "How are Microsoft and OpenAI connected?"
-  - Uses knowledge graph to traverse relationships and partnerships
-
-- **Temporal Questions**: "Show me the timeline of Meta's AI announcements"
-  - Leverages Graphiti's temporal capabilities to track changes over time
-
-- **Complex Analysis**: "Compare the AI strategies of FAANG companies"
-  - Combines vector search for strategy documents with graph traversal for competitive analysis
-
-### Why This Architecture Works So Well
-
-1. **Complementary Strengths**: Vector search finds semantically similar content while knowledge graphs reveal hidden connections
-
-2. **Temporal Intelligence**: Graphiti tracks how facts change over time, perfect for the rapidly evolving AI landscape
-
-3. **Flexible LLM Support**: Switch between OpenAI, Ollama, OpenRouter, or Gemini based on your needs
-
-4. **Production Ready**: Comprehensive testing, error handling, and monitoring
-
-## API Documentation
-
-Visit http://localhost:8058/docs for interactive API documentation once the server is running.
-
-## Key Features
-
-- **Hybrid Search**: Seamlessly combines vector similarity and graph traversal
-- **Temporal Knowledge**: Tracks how information changes over time
-- **Streaming Responses**: Real-time AI responses with Server-Sent Events
-- **Flexible Providers**: Support for multiple LLM and embedding providers
-- **Semantic Chunking**: Intelligent document splitting using LLM analysis
-- **Production Ready**: Comprehensive testing, logging, and error handling
 
 ## Project Structure
 
 ```
-agentic-rag-knowledge-graph/
-├── agent/                  # AI agent and API
-│   ├── agent.py           # Main Pydantic AI agent
-│   ├── api.py             # FastAPI application
-│   ├── providers.py       # LLM provider abstraction
-│   └── models.py          # Data models
-├── ingestion/             # Document processing
-│   ├── ingest.py         # Main ingestion pipeline
-│   ├── chunker.py        # Semantic chunking
-│   └── embedder.py       # Embedding generation
-├── sql/                   # Database schema
-├── documents/             # Your markdown files
-└── tests/                # Comprehensive test suite
+FullExample/
+├── agent/                  # Core agent system
+│   ├── agent.py           # Pydantic AI agent
+│   ├── tools.py           # ⚠️ CUSTOMIZE for your domain
+│   ├── prompts.py         # ⚠️ CUSTOMIZE system prompt
+│   ├── models.py          # ⚠️ CUSTOMIZE Pydantic models
+│   ├── db_utils.py        # PostgreSQL utilities
+│   ├── graph_utils.py     # Neo4j/Graphiti utilities
+│   ├── api.py             # FastAPI endpoints
+│   └── providers.py       # LLM provider abstraction
+├── ingestion/             # Data ingestion pipeline
+│   ├── ingest.py          # Main ingestion script
+│   ├── chunker.py         # Semantic chunking
+│   ├── embedder.py        # Embedding generation
+│   └── graph_builder.py   # Knowledge graph construction
+├── sql/
+│   └── schema.sql         # ⚠️ ADAPT for your schema
+├── tests/                 # Comprehensive test suite
+├── cli.py                 # Interactive CLI
+├── PLANNING.md            # Architecture guide
+└── requirements.txt       # Python dependencies
 ```
 
-## Running Tests
+## Domain Adaptation Examples
 
-```bash
-# Run all tests
-pytest
+### Example 1: Work Items (ADO, Jira, etc.)
 
-# Run with coverage
-pytest --cov=agent --cov=ingestion --cov-report=html
+**Schema:**
+```sql
+work_items (id, ado_id, title, description, work_item_type, embedding, search_vector)
+```
 
-# Run specific test categories
-pytest tests/agent/
-pytest tests/ingestion/
+**Tools:**
+- `search_work_items` - Semantic search
+- `search_work_item_graph` - Epic → Feature relationships
+- `hybrid_work_item_search` - Semantic + keyword
+
+**System Prompt:** "You are an AI PM assistant managing Azure DevOps work items..."
+
+### Example 2: SOC2 Compliance
+
+**Schema:**
+```sql
+policies (id, policy_id, title, content, category, embedding, search_vector)
+controls (id, control_id, policy_id, description, evidence)
+```
+
+**Tools:**
+- `search_policies` - Find relevant policies
+- `search_controls` - Find controls by policy
+- `find_evidence` - Locate supporting evidence
+
+**System Prompt:** "You are a SOC2 compliance assistant with access to security policies..."
+
+### Example 3: Customer Support
+
+**Schema:**
+```sql
+cases (id, case_id, subject, description, status, embedding, search_vector)
+resolutions (id, case_id, solution, applied_at)
+```
+
+**Tools:**
+- `search_similar_cases` - Find similar past issues
+- `get_case_resolution_path` - Show how issue was resolved
+- `search_solutions` - Keyword search for technical terms
+
+**System Prompt:** "You are a support assistant with access to historical cases..."
+
+## Common Customization Patterns
+
+### 1. Change Table/Column Names
+
+**In `agent/db_utils.py`:**
+```python
+# Before (example):
+results = await conn.fetch("SELECT * FROM chunks WHERE...")
+
+# After (your domain):
+results = await conn.fetch("SELECT * FROM work_items WHERE...")
+```
+
+### 2. Add Domain-Specific Fields
+
+**In `agent/models.py`:**
+```python
+class WorkItemMatch(BaseModel):
+    ado_id: int
+    title: str
+    work_item_type: str  # Your domain field
+    similarity_score: float
+```
+
+### 3. Customize Search Weighting
+
+**In `agent/tools.py`:**
+```python
+# For technical content (favor keywords)
+await hybrid_search(query, keyword_weight=0.7)
+
+# For conceptual search (favor semantic)
+await hybrid_search(query, keyword_weight=0.3)
 ```
 
 ## Troubleshooting
 
-### Common Issues
+### Issue: "relation 'documents' does not exist"
+**Solution:** Run `sql/schema.sql` to create tables
 
-**Database Connection**: Ensure your DATABASE_URL is correct and the database is accessible
+### Issue: "Neo4j connection failed"
+**Solution:** Check Neo4j is running (`bolt://localhost:7687`)
+
+### Issue: "Embedding dimension mismatch"
+**Solution:** Update `sql/schema.sql` vector dimensions to match your model (1536 for OpenAI, 768 for Ollama nomic-embed-text)
+
+### Issue: "Agent not calling tools"
+**Solution:** Check `agent/prompts.py` - System prompt guides tool selection
+
+## Performance Optimization
+
+- **Connection pooling:** AsyncPG handles this automatically
+- **Embedding caching:** Embedder class caches repeated queries
+- **Batch processing:** Ingestion processes in batches
+- **Index optimization:** IVFFlat for vectors, GIN for text
+
+## Testing
+
 ```bash
-# Test your connection
-psql -d "$DATABASE_URL" -c "SELECT 1;"
+# All tests
+pytest tests/ -v
+
+# Specific component
+pytest tests/agent/ -v
+pytest tests/ingestion/ -v
+
+# With coverage
+pytest --cov=agent --cov=ingestion --cov-report=term-missing
+
+# Expected: 58/58 tests passing
 ```
 
-**Neo4j Connection**: Verify your Neo4j instance is running and credentials are correct
-```bash
-# Check if Neo4j is accessible (adjust URL as needed)
-curl -u neo4j:password http://localhost:7474/db/data/
-```
+## Documentation
 
-**No Results from Agent**: Make sure you've run the ingestion pipeline first
-```bash
-python -m ingestion.ingest --verbose
-```
+- **[PLANNING.md](./PLANNING.md)** - Complete architecture guide and adaptation instructions
+- **[TASK.md](./TASK.md)** - Development checklist template
+- **[CLAUDE.md](./CLAUDE.md)** - Development rules and best practices
 
-**LLM API Issues**: Check your API key and provider configuration in `.env`
+## Built With
+
+- **[Pydantic AI](https://ai.pydantic.dev/)** - Agent framework
+- **[Graphiti](https://github.com/getzep/graphiti)** - Knowledge graph framework
+- **[pgvector](https://github.com/pgvector/pgvector)** - Vector similarity search
+- **[Neo4j](https://neo4j.com/)** - Graph database
+- **[FastAPI](https://fastapi.tiangolo.com/)** - API framework
+
+## License
+
+MIT License - Use freely for your projects
+
+## Need Help?
+
+1. Check [PLANNING.md](./PLANNING.md) for detailed adaptation guide
+2. See `tests/` for usage examples
+3. Review `agent/tools.py` for tool patterns
+4. Look at `sql/schema.sql` for database design
 
 ---
 
-Built with ❤️ using Pydantic AI, FastAPI, PostgreSQL, and Neo4j.
+**Ready to adapt this for your domain?** Start with [PLANNING.md](./PLANNING.md)!

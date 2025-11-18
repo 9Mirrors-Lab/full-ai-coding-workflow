@@ -1,26 +1,72 @@
 # Hybrid RAG Agent - Reference Architecture
 
-> **⚠️ IMPORTANT: This is a REFERENCE IMPLEMENTATION, not the active project.**
-> 
-> **Active Project:** See `/ai_pm_agent/` - AI Project Management Agent for Azure DevOps work items
-> 
-> **Purpose:** This directory demonstrates Hybrid RAG patterns (pgvector + TSVector + Neo4j/Graphiti) that can be adapted for any domain.
+> **📚 This is a production-ready reference implementation for building Hybrid RAG agents**
+>
+> **Purpose:** Demonstrates best practices for combining semantic search (pgvector), keyword search (TSVector), and knowledge graphs (Neo4j/Graphiti)
+>
+> **Adaptable to any domain:** Work items, support tickets, customer data, compliance documents, etc.
 
-## Reference Implementation Overview
+## What is Hybrid RAG?
 
-This reference implementation shows how to build an AI agent system that combines traditional RAG (Retrieval Augmented Generation) with knowledge graph capabilities. The example domain uses tech company analysis, but **the patterns apply to any domain** (work items, support tickets, customer data, etc.).
+Hybrid RAG combines three powerful retrieval strategies to provide comprehensive, context-aware responses:
 
-**Key Patterns Demonstrated:**
-- PostgreSQL with pgvector for semantic search
-- Neo4j (via Graphiti) for knowledge graph operations
-- TSVector for keyword search (hybrid search)
-- AsyncPG connection pooling
-- Pydantic AI agent tools
+1. **Semantic Search (pgvector)** - Finds conceptually similar content using vector embeddings
+2. **Keyword Search (TSVector)** - Matches exact terminology and technical terms  
+3. **Knowledge Graph (Neo4j/Graphiti)** - Understands relationships and temporal context
 
-**To Adapt for Your Domain:**
-- Replace `documents` and `chunks` tables with your domain tables (e.g., `work_items`)
-- Adapt SQL functions to your schema
-- Customize agent tools for your use case
+This architecture enables agents to:
+- Answer relationship queries ("What Features belong to Epic X?")
+- Handle keyword-specific searches ("Find bugs mentioning 'API timeout'")
+- Provide temporal context ("What changed last sprint?")
+- Combine all three for comprehensive results
+
+## How to Adapt This Template
+
+### Step 1: Define Your Domain
+
+**Current Example:** Documents with chunks (generic content retrieval)
+
+**Your Domain Examples:**
+- **Work Items:** Epic → Feature → User Story → Bug
+- **Support:** Case → Thread → Response → Resolution
+- **Compliance:** Policy → Control → Evidence → Audit
+- **Customer:** Account → Contact → Interaction → Note
+
+### Step 2: Database Schema Adaptation
+
+**Current Schema (`sql/schema.sql`):**
+```sql
+documents (id, title, source, content, metadata)
+chunks (id, document_id, content, embedding, chunk_index)
+```
+
+**Your Schema Example (Work Items):**
+```sql
+work_items (id, ado_id, title, description, work_item_type, embedding, search_vector)
+relationships (source_id, target_id, relationship_type, created_at)
+```
+
+### Step 3: Agent Tools Adaptation
+
+**Current Tools:** `vector_search`, `graph_search`, `hybrid_search`, `get_document`
+
+**Your Tools Example (Work Items):**
+- `search_work_items` - Semantic search for similar work items
+- `search_work_item_graph` - Find Epic → Feature relationships
+- `hybrid_work_item_search` - Combine semantic + keyword
+- `get_work_item_timeline` - Temporal history
+
+### Step 4: System Prompt Customization
+
+**Current:** Generic knowledge retrieval assistant
+
+**Your Domain:** Add domain expertise (ADO processes, SOC2 compliance, customer service patterns)
+
+### Step 5: Knowledge Graph Design
+
+**Current:** Generic entity/fact model
+
+**Your Domain:** Define your entity relationships (Epic CONTAINS Feature, Case RESOLVES_TO Solution)
 
 ## Architecture Overview
 
@@ -49,17 +95,38 @@ This reference implementation shows how to build an AI agent system that combine
 └─────────────────────────────────────────────────────────┘
 ```
 
+## Key Files to Customize
+
+### Critical Files for Domain Adaptation
+
+| File | What to Change | Why |
+|------|---------------|-----|
+| `sql/schema.sql` | Replace `documents`/`chunks` with your tables | Defines your data structure |
+| `agent/tools.py` | Rename and adapt search tools | Domain-specific retrieval logic |
+| `agent/prompts.py` | Add domain expertise to system prompt | Guides agent behavior |
+| `agent/models.py` | Update Pydantic models for your data | Type safety for your domain |
+| `agent/db_utils.py` | Adapt SQL function calls | Match your schema |
+| `agent/graph_utils.py` | Define your relationship types | Knowledge graph structure |
+| `ingestion/*.py` | Adapt for your data sources | How data enters the system |
+
+### Files That Usually Don't Need Changes
+
+- `agent/agent.py` - Core Pydantic AI setup (generic)
+- `agent/providers.py` - LLM provider abstraction (reusable)
+- `agent/api.py` - FastAPI endpoints (generic REST/SSE patterns)
+- `tests/conftest.py` - Test fixtures (adapt mocks for your models)
+
 ## Core Components
 
-### 1. Agent System (`/agent`)
-- **agent.py**: Main Pydantic AI agent with system prompts and configuration
-- **tools.py**: All agent tools for RAG and knowledge graph operations
-- **prompts.py**: System prompts controlling agent tool selection behavior
-- **api.py**: FastAPI endpoints with streaming support and tool usage extraction
-- **db_utils.py**: PostgreSQL database utilities and connection management
-- **graph_utils.py**: Neo4j/Graphiti utilities with OpenAI-compatible client configuration
-- **models.py**: Pydantic models for data validation including ToolCall tracking
-- **providers.py**: Flexible LLM provider abstraction supporting multiple backends
+### 1. Agent System (`/agent`) - **Adapt these for your domain**
+- **agent.py**: Main Pydantic AI agent (usually no changes needed)
+- **tools.py**: ⚠️ **CUSTOMIZE** - Rename tools for your domain
+- **prompts.py**: ⚠️ **CUSTOMIZE** - Add domain expertise
+- **api.py**: FastAPI endpoints (usually no changes needed)
+- **db_utils.py**: ⚠️ **ADAPT** - Update SQL function names
+- **graph_utils.py**: ⚠️ **ADAPT** - Define relationship types
+- **models.py**: ⚠️ **CUSTOMIZE** - Your domain Pydantic models
+- **providers.py**: Flexible LLM provider (reusable as-is)
 
 ### 2. Ingestion System (`/ingestion`)
 - **ingest.py**: Main ingestion script to process markdown files

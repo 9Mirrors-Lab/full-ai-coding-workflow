@@ -1,314 +1,380 @@
-# Task List - Hybrid RAG Reference Architecture
+# Hybrid RAG Development Checklist
 
-> **⚠️ IMPORTANT: This is a REFERENCE IMPLEMENTATION**
+> **📋 Use this as a template for building your own Hybrid RAG agent**
 >
-> **Active Project:** The actual AI PM Agent is in `/ai_pm_agent/` with its own task tracking
->
-> **Purpose:** This task list shows the development history of the reference architecture
+> This is a comprehensive checklist for implementing a Hybrid RAG system. Copy and adapt for your specific domain.
 
-## Overview
-This document tracks all tasks that were completed for building this reference Hybrid RAG system. These tasks are shown as examples of what's needed to build a production-ready Hybrid RAG agent.
+## Phase 1: Foundation & Planning
+
+### 1.1 Define Your Domain
+- [ ] Identify your primary entities (e.g., work_items, tickets, policies)
+- [ ] Map entity relationships (e.g., Epic → Feature → Story)
+- [ ] Define relationship types (CONTAINS, RELATES_TO, RESOLVES, etc.)
+- [ ] Identify required metadata fields
+- [ ] Determine temporal requirements (do you need history/timeline?)
+
+### 1.2 Database Design
+- [ ] Design PostgreSQL schema for your entities
+- [ ] Add vector column for semantic search (pgvector)
+- [ ] Add text search column for keyword search (tsvector)
+- [ ] Create indexes (IVFFlat for vectors, GIN for text)
+- [ ] Design SQL functions for search operations
+- [ ] Plan for metadata storage (JSONB recommended)
+
+### 1.3 Knowledge Graph Design
+- [ ] Define Neo4j node types (map to your entities)
+- [ ] Define relationship types between nodes
+- [ ] Plan for temporal relationships (Graphiti supports this)
+- [ ] Design episode structure (logical grouping of changes)
+- [ ] Consider bi-temporal model (valid_at vs recorded_at)
+
+### 1.4 Environment Setup
+- [ ] Set up Python virtual environment
+- [ ] Install dependencies (`requirements.txt`)
+- [ ] Configure PostgreSQL with pgvector extension
+- [ ] Set up Neo4j database
+- [ ] Create `.env` file with all credentials
+- [ ] Test database connections
+
+## Phase 2: Database Implementation
+
+### 2.1 PostgreSQL Setup
+- [ ] Execute schema creation SQL
+- [ ] Verify pgvector extension is enabled
+- [ ] Test vector operations (cosine similarity)
+- [ ] Create text search configuration
+- [ ] Test full-text search
+- [ ] Set up connection pooling (AsyncPG)
+
+### 2.2 Neo4j Setup
+- [ ] Install Neo4j (Desktop or Docker)
+- [ ] Create database and set authentication
+- [ ] Test connection from Python
+- [ ] Install Graphiti and configure
+- [ ] Verify graph operations work
+
+### 2.3 SQL Functions
+- [ ] Implement `match_[entities]` for semantic search
+- [ ] Implement `hybrid_[entities]_search` for combined search
+- [ ] Add specialized search functions (by date, type, etc.)
+- [ ] Test all functions with sample data
+- [ ] Optimize query performance
+
+## Phase 3: Ingestion Pipeline
+
+### 3.1 Data Source Integration
+- [ ] Identify data sources (files, API, database)
+- [ ] Design ingestion flow
+- [ ] Implement data extraction
+- [ ] Handle different formats (JSON, CSV, Markdown, etc.)
+- [ ] Add error handling and logging
+
+### 3.2 Chunking Strategy
+- [ ] Implement semantic chunking (or use fixed size)
+- [ ] Test chunk sizes (balance context vs specificity)
+- [ ] Handle overlapping chunks if needed
+- [ ] Preserve metadata through chunking
+- [ ] Test with real data samples
+
+### 3.3 Embedding Generation
+- [ ] Choose embedding model (OpenAI, Ollama, etc.)
+- [ ] Implement embedding generation
+- [ ] Add caching for repeated queries
+- [ ] Handle rate limits and retries
+- [ ] Batch processing for efficiency
+
+### 3.4 Knowledge Graph Construction
+- [ ] Extract entities from your data
+- [ ] Identify relationships between entities
+- [ ] Create episodes for logical grouping
+- [ ] Add temporal information
+- [ ] Build graph incrementally
+- [ ] Handle updates and deduplication
+
+### 3.5 Testing Ingestion
+- [ ] Test with small sample data
+- [ ] Verify vector embeddings are correct
+- [ ] Verify text search vectors are populated
+- [ ] Check knowledge graph structure
+- [ ] Test incremental updates
+- [ ] Measure ingestion performance
+
+## Phase 4: Agent Development
+
+### 4.1 Agent Core
+- [ ] Set up Pydantic AI agent
+- [ ] Configure LLM provider (OpenAI, Ollama, etc.)
+- [ ] Define agent dependencies (database clients, etc.)
+- [ ] Create basic agent structure
+- [ ] Test agent initialization
+
+### 4.2 Pydantic Models
+- [ ] Define models for your entities
+- [ ] Add models for search results
+- [ ] Create models for tool responses
+- [ ] Add validation rules
+- [ ] Test model serialization
+
+### 4.3 System Prompt
+- [ ] Adapt `SYSTEM_PROMPT` template for your domain
+- [ ] Add domain-specific expertise
+- [ ] Define tool selection strategy
+- [ ] Add response guidelines
+- [ ] Include example interactions
+- [ ] Test prompt effectiveness
+
+### 4.4 Tool Implementation
+- [ ] Implement semantic search tool
+- [ ] Implement keyword search tool
+- [ ] Implement knowledge graph search tool
+- [ ] Implement hybrid search tool
+- [ ] Add entity retrieval tools (get by ID, etc.)
+- [ ] Add specialized tools (timeline, relationships, etc.)
+- [ ] Document all tools with clear descriptions
+- [ ] Test each tool independently
+
+### 4.5 Database Utilities
+- [ ] Implement connection management (AsyncPG)
+- [ ] Add query helper functions
+- [ ] Implement result parsing
+- [ ] Add error handling
+- [ ] Test connection pooling
+
+### 4.6 Graph Utilities
+- [ ] Implement Graphiti client setup
+- [ ] Add graph query functions
+- [ ] Implement relationship traversal
+- [ ] Add temporal query support
+- [ ] Handle graph updates
+
+## Phase 5: API Development
+
+### 5.1 FastAPI Setup
+- [ ] Create FastAPI app
+- [ ] Add CORS configuration
+- [ ] Set up request/response models
+- [ ] Add health check endpoint
+- [ ] Test basic API functionality
+
+### 5.2 Chat Endpoints
+- [ ] Implement `/chat` endpoint (simple response)
+- [ ] Implement `/chat/stream` endpoint (SSE streaming)
+- [ ] Add request validation
+- [ ] Add response formatting
+- [ ] Test both endpoints
+
+### 5.3 Tool Usage Tracking
+- [ ] Implement tool call extraction
+- [ ] Add tool usage to responses
+- [ ] Log tool performance
+- [ ] Add debugging information
+
+### 5.4 Error Handling
+- [ ] Add global exception handler
+- [ ] Handle database errors gracefully
+- [ ] Handle LLM errors (rate limits, etc.)
+- [ ] Return user-friendly error messages
+- [ ] Log errors for debugging
+
+## Phase 6: CLI Development
+
+### 6.1 Interactive CLI
+- [ ] Implement basic CLI interface
+- [ ] Add conversation history
+- [ ] Add commands (/help, /clear, /exit)
+- [ ] Show tool usage
+- [ ] Add colored output for readability
+
+### 6.2 CLI Features
+- [ ] Support multi-line input
+- [ ] Show streaming responses
+- [ ] Add command history
+- [ ] Implement special commands
+- [ ] Test user experience
+
+## Phase 7: Testing
+
+### 7.1 Unit Tests
+- [ ] Test Pydantic models
+- [ ] Test database utilities
+- [ ] Test graph utilities
+- [ ] Test embedding generation
+- [ ] Test chunking logic
+- [ ] Achieve >80% code coverage
+
+### 7.2 Integration Tests
+- [ ] Test ingestion pipeline end-to-end
+- [ ] Test agent with TestModel
+- [ ] Test API endpoints
+- [ ] Test CLI functionality
+- [ ] Test with real data samples
+
+### 7.3 Agent Tests
+- [ ] Test tool selection
+- [ ] Test each tool independently
+- [ ] Test tool combinations
+- [ ] Test error handling
+- [ ] Test with different LLM providers
+
+### 7.4 Performance Tests
+- [ ] Measure search query latency
+- [ ] Test with large datasets
+- [ ] Profile embedding generation
+- [ ] Test concurrent requests
+- [ ] Optimize slow operations
+
+## Phase 8: Documentation
+
+### 8.1 Code Documentation
+- [ ] Add docstrings to all functions
+- [ ] Document tool parameters
+- [ ] Add inline comments for complex logic
+- [ ] Document configuration options
+- [ ] Add type hints everywhere
+
+### 8.2 User Documentation
+- [ ] Write README with quick start
+- [ ] Document installation steps
+- [ ] Add usage examples
+- [ ] Document API endpoints
+- [ ] Add troubleshooting guide
+- [ ] Create adaptation guide for new domains
+
+### 8.3 Architecture Documentation
+- [ ] Document system architecture
+- [ ] Explain tool selection strategy
+- [ ] Document database schema
+- [ ] Explain knowledge graph structure
+- [ ] Add performance considerations
+
+## Phase 9: Deployment Preparation
+
+### 9.1 Configuration Management
+- [ ] Use environment variables for all config
+- [ ] Create `.env.example` file
+- [ ] Document all configuration options
+- [ ] Add validation for required settings
+- [ ] Support multiple environments (dev, prod)
+
+### 9.2 Security
+- [ ] Never commit API keys or passwords
+- [ ] Use secure password storage
+- [ ] Add input validation
+- [ ] Sanitize user inputs
+- [ ] Rate limit API endpoints
+- [ ] Add authentication if needed
+
+### 9.3 Monitoring
+- [ ] Add logging throughout
+- [ ] Log tool usage statistics
+- [ ] Monitor database performance
+- [ ] Track LLM API usage
+- [ ] Set up error alerting
+
+### 9.4 Optimization
+- [ ] Optimize slow queries
+- [ ] Tune vector index parameters
+- [ ] Implement caching where beneficial
+- [ ] Batch operations when possible
+- [ ] Use connection pooling
+
+## Phase 10: Production Deployment
+
+### 10.1 Infrastructure
+- [ ] Choose hosting platform
+- [ ] Set up PostgreSQL (managed or self-hosted)
+- [ ] Set up Neo4j (managed or self-hosted)
+- [ ] Configure networking and security
+- [ ] Set up SSL/TLS if exposing API
+
+### 10.2 Deployment
+- [ ] Create deployment scripts
+- [ ] Set up CI/CD pipeline
+- [ ] Configure production environment variables
+- [ ] Test deployment process
+- [ ] Create rollback plan
+
+### 10.3 Initial Data Load
+- [ ] Prepare production data
+- [ ] Run ingestion pipeline
+- [ ] Verify data integrity
+- [ ] Test searches on production data
+- [ ] Validate knowledge graph
+
+### 10.4 Launch
+- [ ] Deploy to production
+- [ ] Monitor for errors
+- [ ] Test all endpoints
+- [ ] Verify performance
+- [ ] Document any issues
+
+## Phase 11: Maintenance
+
+### 11.1 Monitoring
+- [ ] Set up health checks
+- [ ] Monitor database performance
+- [ ] Track API usage
+- [ ] Monitor LLM costs
+- [ ] Set up alerts for issues
+
+### 11.2 Updates
+- [ ] Plan for incremental data updates
+- [ ] Implement data refresh strategy
+- [ ] Handle schema migrations
+- [ ] Update dependencies regularly
+- [ ] Test updates in staging first
+
+### 11.3 Improvements
+- [ ] Gather user feedback
+- [ ] Analyze tool usage patterns
+- [ ] Optimize based on real usage
+- [ ] Add new tools as needed
+- [ ] Improve system prompt based on interactions
 
 ---
 
-## Phase 0: MCP Server Integration & Setup
+## Domain-Specific Checklists
 
-### External Documentation Gathering
-- [X] Use Crawl4AI RAG to get Pydantic AI documentation and examples
-- [X] Query documentation for best practices and implementation patterns
+### For Work Items (ADO/Jira)
+- [ ] Integrate with ADO/Jira API
+- [ ] Handle work item state changes
+- [ ] Track parent-child relationships
+- [ ] Implement sprint/iteration filtering
+- [ ] Add priority and type filtering
 
-### Neon Database Project Setup
-- [X] Create new Neon database project using Neon MCP server
-- [X] Set up pgvector extension using Neon MCP server
-- [X] Create all required tables (documents, chunks, sessions, messages) using Neon MCP server
-- [X] Verify table creation using Neon MCP server tools
-- [X] Get connection string and update environment configuration
-- [X] Test database connectivity and basic operations using Neon MCP server
+### For SOC2 Compliance
+- [ ] Map policies to frameworks
+- [ ] Link controls to evidence
+- [ ] Track audit periods
+- [ ] Implement compliance scoring
+- [ ] Generate audit reports
 
-## Phase 1: Foundation & Setup
+### For Customer Support
+- [ ] Integrate with ticketing system
+- [ ] Track resolution patterns
+- [ ] Implement SLA monitoring
+- [ ] Add sentiment analysis
+- [ ] Generate support metrics
 
-### Project Structure
-- [x] Create project directory structure
-- [x] Set up .gitignore for Python project
-- [x] Create .env.example with all required variables
-- [x] Initialize virtual environment setup instructions
-
-### Database Setup
-- [x] Create PostgreSQL schema with pgvector extension
-- [x] Write SQL migration scripts
-- [x] Create database connection utilities for PostgreSQL
-- [x] Set up connection pooling with asyncpg
-- [x] Configure Neo4j connection settings
-- [x] Initialize Graphiti client configuration
-
-### Base Models & Configuration
-- [x] Create Pydantic models for documents
-- [x] Create models for chunks and embeddings
-- [x] Create models for search results
-- [x] Create models for knowledge graph entities
-- [x] Define configuration dataclasses
-- [x] Set up logging configuration
+### For Your Domain
+- [ ] [Add your domain-specific tasks here]
+- [ ] [Map your unique requirements]
+- [ ] [Define custom tools needed]
+- [ ] [Plan domain-specific features]
 
 ---
 
-## Phase 2: Core Agent Development
+## Quick Reference: Common Pitfalls
 
-### Agent Foundation
-- [x] Create main agent file with Pydantic AI
-- [x] Define agent system prompts
-- [x] Set up dependency injection structure
-- [x] Configure flexible model settings (OpenAI/Ollama/OpenRouter/Gemini)
-- [x] Implement error handling for agent
-
-### RAG Tools Implementation
-- [x] Create vector search tool
-- [x] Create document metadata search tool
-- [x] Create full document retrieval tool
-- [x] Implement embedding generation utility
-- [x] Add result ranking and formatting
-- [x] Create hybrid search orchestration
-
-### Knowledge Graph Tools
-- [x] Create graph search tool
-- [x] Implement entity lookup tool
-- [x] Create relationship traversal tool
-- [x] Add temporal filtering capabilities
-- [x] Implement graph result formatting
-- [x] Create graph visualization data tool
-
-### Tool Integration
-- [x] Integrate all tools with main agent
-- [x] Create unified search interface
-- [x] Implement result merging strategies
-- [x] Add context management
-- [x] Create tool usage documentation
+- ❌ **Wrong embedding dimensions** - Match your model (1536 for OpenAI, 768 for Ollama)
+- ❌ **Missing indexes** - Vector and text search need proper indexes
+- ❌ **Oversized chunks** - Too large = poor retrieval, too small = lost context
+- ❌ **Vague system prompt** - Be specific about when to use each tool
+- ❌ **No connection pooling** - AsyncPG handles this, but verify it's configured
+- ❌ **Ignoring temporal data** - Knowledge graphs are powerful for time-based queries
+- ❌ **Not testing with TestModel** - Always test agent logic before using real LLMs
+- ❌ **Hardcoded values** - Use environment variables for all configuration
 
 ---
 
-## Phase 3: API Layer
-
-### FastAPI Setup
-- [x] Create main FastAPI application
-- [x] Configure CORS middleware
-- [x] Set up lifespan management
-- [x] Add global exception handlers
-- [x] Configure logging middleware
-
-### API Endpoints
-- [x] Create chat endpoint with streaming
-- [x] Implement session management endpoints
-- [x] Add document search endpoints
-- [x] Create knowledge graph query endpoints
-- [x] Add health check endpoint
-
-### Streaming & Real-time
-- [x] Implement SSE streaming
-- [x] Add delta streaming for responses
-- [x] Create connection management
-- [x] Handle client disconnections
-- [x] Add retry mechanisms
-
----
-
-## Phase 4: Ingestion System
-
-### Document Processing
-- [x] Create markdown file loader
-- [x] Implement semantic chunking algorithm
-- [x] Research and select chunking strategy
-- [x] Add chunk overlap handling
-- [x] Create metadata extraction
-- [x] Implement document validation
-
-### Embedding Generation
-- [x] Create embedding generator class
-- [x] Implement batch processing
-- [x] Add embedding caching
-- [x] Create retry logic for API calls
-- [x] Add progress tracking
-
-### Vector Database Insertion
-- [x] Create PostgreSQL insertion utilities
-- [x] Implement batch insert for chunks
-- [x] Add transaction management
-- [x] Create duplicate detection
-- [x] Implement update strategies
-
-### Knowledge Graph Building
-- [x] Create entity extraction pipeline
-- [x] Implement relationship detection
-- [x] Add Graphiti integration for insertion
-- [x] Create temporal data handling
-- [x] Implement graph validation
-- [x] Add conflict resolution
-
-### Cleanup Utilities
-- [x] Create database cleanup script
-- [x] Add selective cleanup options
-- [x] Implement backup before cleanup
-- [x] Create restoration utilities
-- [x] Add confirmation prompts
-
----
-
-## Phase 5: Testing
-
-### Unit Tests - Agent
-- [x] Test agent initialization
-- [x] Test each tool individually
-- [x] Test tool integration
-- [x] Test error handling
-- [x] Test dependency injection
-- [x] Test prompt formatting
-
-### Unit Tests - API
-- [x] Test endpoint routing
-- [x] Test streaming responses
-- [x] Test error responses
-- [x] Test session management
-- [x] Test input validation
-- [x] Test CORS configuration
-
-### Unit Tests - Ingestion
-- [x] Test document loading
-- [x] Test chunking algorithms
-- [x] Test embedding generation
-- [x] Test database insertion
-- [x] Test graph building
-- [x] Test cleanup operations
-
-### Integration Tests
-- [x] Test end-to-end chat flow
-- [x] Test document ingestion pipeline
-- [x] Test search workflows
-- [x] Test concurrent operations
-- [x] Test database transactions
-- [x] Test error recovery
-
-### Test Infrastructure
-- [x] Create test fixtures
-- [x] Set up database mocks
-- [x] Create LLM mocks
-- [x] Add test data generators
-- [x] Configure test environment
-
----
-
-## Phase 6: Documentation
-
-### Code Documentation
-- [x] Add docstrings to all functions
-- [x] Create inline comments for complex logic
-- [x] Add type hints throughout
-- [x] Create module-level documentation
-- [x] Add TODO/FIXME tracking
-
-### User Documentation
-- [x] Create comprehensive README
-- [x] Write installation guide
-- [x] Create usage examples
-- [x] Add API documentation
-- [x] Create troubleshooting guide
-- [x] Add configuration guide
-
-### Developer Documentation
-- [x] Create architecture diagrams
-- [x] Write contributing guidelines
-- [x] Create development setup guide
-- [x] Add code style guide
-- [x] Create testing guide
-
----
-
-## Quality Assurance
-
-### Code Quality
-- [x] Run black formatter on all code
-- [x] Run ruff linter and fix issues
-- [x] Check type hints with mypy
-- [x] Review code for best practices
-- [x] Optimize for performance
-- [x] Check for security issues
-
-### Testing & Validation
-- [x] Achieve >80% test coverage (58/58 tests passing)
-- [x] Run all tests successfully
-- [x] Perform manual testing
-- [x] Test with real documents
-- [x] Validate search results
-- [x] Check error handling
-
-### Final Review
-- [x] Review all documentation
-- [x] Check environment variables
-- [x] Validate database schemas
-- [x] Test installation process
-- [x] Verify all features work
-- [x] Create demo scenarios
-
----
-
-## Critical Fixes
-
-### Code Review & Fixes
-- [x] **CRITICAL**: Fix Pydantic AI tool decorators - Remove invalid `description=` parameter
-- [x] **CRITICAL**: Implement flexible LLM provider support (OpenAI/Ollama/OpenRouter/Gemini)
-- [x] **CRITICAL**: Fix agent streaming implementation using `agent.iter()` pattern
-- [x] **CRITICAL**: Move agent execution functions out of agent.py into api.py
-- [x] **CRITICAL**: Fix CORS to use `allow_origins=["*"]`
-- [x] **CRITICAL**: Update tests to mock all external dependencies (no real DB/API connections)
-- [x] Add separate LLM configuration for ingestion (fast/lightweight model option)
-- [x] Update .env.example with flexible provider configuration
-- [x] Implement proper embedding provider flexibility (OpenAI/Ollama)
-- [x] Test and iterate until all tests pass using proper mocking
-
-### Graphiti Integration Fixes
-- [x] Fix Graphiti implementation with proper initialization and lifecycle management
-- [x] Remove all limit parameters from Graphiti operations per user requirements
-- [x] Fix PostgreSQL embedding storage format (JSON string format)
-- [x] Remove similarity thresholds entirely from vector search
-- [x] Fix ChunkResult UUID to string conversion
-- [x] Optimize Graphiti to avoid token limit errors (content truncation)
-- [x] Configure Graphiti with OpenAI-compatible clients (OpenAIClient, OpenAIEmbedder)
-- [x] Fix duplicate ToolCall model definition in models.py
-
----
-
-## Phase 7: CLI and Agent Transparency
-
-### Command Line Interface
-- [x] Create interactive CLI for agent interaction
-- [x] Implement real-time streaming display
-- [x] Add tool usage visibility to show agent reasoning
-- [x] Create session management in CLI
-- [x] Add color-coded output for better readability
-- [x] Implement CLI commands (help, health, clear, exit)
-- [x] Configure default port to 8058
-
-### API Tool Tracking
-- [x] Add ToolCall model for tracking tool usage
-- [x] Implement extract_tool_calls function
-- [x] Update ChatResponse to include tools_used field
-- [x] Add tool usage to streaming responses
-- [x] Fix tool call extraction from Pydantic AI messages
-
-### Documentation Updates
-- [x] Add CLI usage section to README
-- [x] Document agent behavior configuration via prompts.py
-- [x] Update model examples to latest versions (gpt-4.1-mini, etc.)
-- [x] Update all port references to 8058
-- [x] Add note about configuring agent tool selection behavior
-
----
-
-## Project Status
-
-✅ **All core functionality completed and tested**
-✅ **58/58 tests passing**
-✅ **Production ready**
-✅ **Comprehensive documentation**
-✅ **Flexible provider system implemented**
-✅ **CLI with agent transparency features**
-✅ **Graphiti integration with OpenAI-compatible clients**
-
-The agentic RAG with knowledge graph system is complete and ready for production use.
+**Ready to build?** Start with Phase 1 and work through systematically. Each phase builds on the previous one.
