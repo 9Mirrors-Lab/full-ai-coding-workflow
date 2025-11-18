@@ -1,8 +1,26 @@
-# Agentic RAG with Knowledge Graph - Project Plan
+# Hybrid RAG Agent - Reference Architecture
 
-## Project Overview
+> **⚠️ IMPORTANT: This is a REFERENCE IMPLEMENTATION, not the active project.**
+> 
+> **Active Project:** See `/ai_pm_agent/` - AI Project Management Agent for Azure DevOps work items
+> 
+> **Purpose:** This directory demonstrates Hybrid RAG patterns (pgvector + TSVector + Neo4j/Graphiti) that can be adapted for any domain.
 
-This project builds an AI agent system that combines traditional RAG (Retrieval Augmented Generation) with knowledge graph capabilities to analyze and provide insights about big tech companies and their AI initiatives. The system uses PostgreSQL with pgvector for vector search and Neo4j (via Graphiti) for knowledge graph operations.
+## Reference Implementation Overview
+
+This reference implementation shows how to build an AI agent system that combines traditional RAG (Retrieval Augmented Generation) with knowledge graph capabilities. The example domain uses tech company analysis, but **the patterns apply to any domain** (work items, support tickets, customer data, etc.).
+
+**Key Patterns Demonstrated:**
+- PostgreSQL with pgvector for semantic search
+- Neo4j (via Graphiti) for knowledge graph operations
+- TSVector for keyword search (hybrid search)
+- AsyncPG connection pooling
+- Pydantic AI agent tools
+
+**To Adapt for Your Domain:**
+- Replace `documents` and `chunks` tables with your domain tables (e.g., `work_items`)
+- Adapt SQL functions to your schema
+- Customize agent tools for your use case
 
 ## Architecture Overview
 

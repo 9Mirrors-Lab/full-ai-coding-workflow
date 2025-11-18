@@ -1,6 +1,15 @@
+# FullExample - Reference Architecture Rules
+
+> **⚠️ IMPORTANT: This is a REFERENCE IMPLEMENTATION directory**
+>
+> **Active Project:** The actual AI PM Agent is in `/ai_pm_agent/` with its own CLAUDE.md at project root
+>
+> **Purpose:** These rules apply to the FullExample reference code that demonstrates Hybrid RAG patterns
+
 ### 🔄 Project Awareness & Context
-- **Always read `PLANNING.md`** at the start of a new conversation to understand the project's architecture, goals, style, and constraints.
-- **Check `TASK.md`** before starting a new task. If the task isn’t listed, add it with a brief description and today's date.
+- **Always read `PLANNING.md`** at the start of a new conversation to understand this **reference architecture**.
+- **This is NOT the active project** - it's example code showing patterns to adapt
+- **Check `TASK.md`** before starting a new task. If the task isn't listed, add it with a brief description and today's date.
 - **Use consistent naming conventions, file structure, and architecture patterns** as described in `PLANNING.md`.
 
 ### 🧱 Code Structure & Modularity
