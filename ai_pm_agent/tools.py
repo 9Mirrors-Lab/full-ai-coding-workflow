@@ -16,7 +16,13 @@ from .models import (
     ArtifactTagResult,
     SprintRecommendation,
     ActionItemResult,
-    LaunchReadinessUpdate
+    LaunchReadinessUpdate,
+    # Phase 2 models
+    GraphRelationship,
+    GraphSearchResult,
+    TimelineEvent,
+    HybridSearchMatch,
+    ComprehensiveSearchResult
 )
 
 logger = logging.getLogger(__name__)
@@ -563,3 +569,515 @@ async def log_agent_decision_tool(
         except:
             pass
         return ""
+
+
+# ===== Phase 2 Tools: Knowledge Graph & Hybrid Search =====
+
+
+async def search_work_item_graph_tool(
+    entity_name: str,
+    relationship_types: Optional[List[str]],
+    depth: int,
+    graphiti_client
+) -> GraphSearchResult:
+    """
+    Search knowledge graph for work item relationships.
+
+    Queries Neo4j/Graphiti to find related work items and their connections.
+    Useful for questions like "Show all Features in Epic #1234" or
+    "What work items block User Story #5678?"
+
+    Args:
+        entity_name: Work item identifier (e.g., "Epic #1234", "Feature #5678")
+        relationship_types: Filter by specific relationships (CONTAINS, IMPLEMENTS, BLOCKS, DEPENDS_ON)
+        depth: Maximum graph traversal depth (1-5)
+        graphiti_client: GraphitiClient instance for knowledge graph access
+
+    Returns:
+        Graph search results with related entities and relationships
+
+    Raises:
+        ValueError: If depth not in range 1-5 or graphiti_client is None
+    """
+    try:
+        # Validate inputs
+        if not graphiti_client:
+            raise ValueError("Phase 2 not configured: graphiti_client is None")
+
+        if not 1 <= depth <= 5:
+            raise ValueError("depth must be between 1 and 5")
+
+        # Call Graphiti to get related entities
+        results = await graphiti_client.get_related_entities(
+            entity_name=entity_name,
+            relationship_types=relationship_types,
+            depth=depth
+        )
+
+        # Parse Graphiti facts into structured relationships
+        relationships = []
+        for fact_dict in results.get("related_facts", []):
+            fact_text = fact_dict.get("fact", "")
+
+            # Simple relationship extraction from fact text
+            # Example: "Epic #1234 CONTAINS Feature #5678"
+            rel = parse_graphiti_fact(fact_text, fact_dict)
+            if rel:
+                relationships.append(rel)
+
+        return GraphSearchResult(
+            central_entity=entity_name,
+            related_entities=results.get("entities", []),
+            relationships=relationships,
+            search_method=results.get("search_method", "graphiti_semantic_search")
+        )
+
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Graph search failed for {entity_name}: {e}")
+        # Return empty result for graceful degradation
+        return GraphSearchResult(
+            central_entity=entity_name,
+            related_entities=[],
+            relationships=[],
+            search_method="graphiti_semantic_search"
+        )
+
+
+def parse_graphiti_fact(fact_text: str, fact_dict: Dict[str, Any]) -> Optional[GraphRelationship]:
+    """
+    Parse Graphiti fact text into GraphRelationship.
+
+    Examples:
+        "Epic #1234 CONTAINS Feature #5678"
+        "Feature #5678 IMPLEMENTS User Story #9012"
+        "User Story #9012 BLOCKS User Story #9013"
+
+    Args:
+        fact_text: Fact description from Graphiti
+        fact_dict: Full fact dictionary with metadata
+
+    Returns:
+        GraphRelationship or None if parsing fails
+    """
+    try:
+        # Extract relationship keywords
+        relationship_keywords = ["CONTAINS", "IMPLEMENTS", "BLOCKS", "DEPENDS_ON"]
+
+        found_rel_type = None
+        for rel_type in relationship_keywords:
+            if rel_type in fact_text.upper():
+                found_rel_type = rel_type
+                break
+
+        if not found_rel_type:
+            return None
+
+        # Simple pattern extraction (can be enhanced with regex)
+        parts = fact_text.split(found_rel_type)
+        if len(parts) != 2:
+            return None
+
+        source = parts[0].strip()
+        target = parts[1].strip()
+
+        return GraphRelationship(
+            source_work_item=source,
+            relationship_type=found_rel_type,
+            target_work_item=target,
+            valid_from=fact_dict.get("valid_at"),
+            valid_until=fact_dict.get("invalid_at"),
+            metadata={"uuid": fact_dict.get("uuid")}
+        )
+    except Exception as e:
+        logger.debug(f"Failed to parse fact '{fact_text}': {e}")
+        return None
+
+
+async def get_work_item_timeline_tool(
+    work_item_id: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    graphiti_client
+) -> List[TimelineEvent]:
+    """
+    Retrieve temporal history of work item changes from knowledge graph.
+
+    Tracks status changes, assignments, sprint movements, and other lifecycle
+    events over time using Graphiti's bi-temporal model.
+
+    Args:
+        work_item_id: Azure DevOps work item ID (e.g., 1234)
+        start_date: Start of time range (ISO format: "2025-01-01T00:00:00Z") or None for all
+        end_date: End of time range (ISO format) or None for up to present
+        graphiti_client: GraphitiClient instance
+
+    Returns:
+        Chronologically ordered list of timeline events
+
+    Raises:
+        ValueError: If graphiti_client is None or invalid date format
+    """
+    try:
+        if not graphiti_client:
+            raise ValueError("Phase 2 not configured: graphiti_client is None")
+
+        # Format entity name for Graphiti
+        entity_name = f"WorkItem#{work_item_id}"
+
+        # Parse date strings to datetime objects
+        from datetime import datetime, timezone
+
+        start_dt = None
+        end_dt = None
+
+        if start_date:
+            try:
+                start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            except ValueError as e:
+                raise ValueError(f"Invalid start_date format: {e}")
+
+        if end_date:
+            try:
+                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            except ValueError as e:
+                raise ValueError(f"Invalid end_date format: {e}")
+
+        # Query Graphiti timeline
+        timeline_facts = await graphiti_client.get_entity_timeline(
+            entity_name=entity_name,
+            start_date=start_dt,
+            end_date=end_dt
+        )
+
+        # Convert facts to TimelineEvent objects
+        events = []
+        for fact in timeline_facts:
+            event = TimelineEvent(
+                fact=fact.get("fact", "Unknown event"),
+                timestamp=fact.get("timestamp") or fact.get("valid_at") or datetime.now(timezone.utc).isoformat(),
+                event_type=classify_event_type(fact.get("fact", "")),
+                metadata={
+                    "uuid": fact.get("uuid"),
+                    "source": fact.get("source", "graphiti"),
+                    "confidence": fact.get("confidence", 1.0)
+                }
+            )
+            events.append(event)
+
+        # Sort chronologically (oldest first)
+        events.sort(key=lambda e: e.timestamp)
+
+        return events
+
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Timeline retrieval failed for work item {work_item_id}: {e}")
+        return []
+
+
+def classify_event_type(fact: str) -> str:
+    """
+    Classify event type based on fact text.
+
+    Examples:
+        "Status changed from New to In Progress" -> status_change
+        "Assigned to John Doe" -> assignment_update
+        "Moved to Sprint 42" -> sprint_movement
+        "Description updated" -> description_change
+
+    Args:
+        fact: Event description
+
+    Returns:
+        Event type category
+    """
+    fact_lower = fact.lower()
+
+    if "status changed" in fact_lower or "moved to" in fact_lower and "sprint" not in fact_lower:
+        return "status_change"
+    elif "assigned" in fact_lower:
+        return "assignment_update"
+    elif "sprint" in fact_lower:
+        return "sprint_movement"
+    elif "description" in fact_lower:
+        return "description_change"
+    elif "priority" in fact_lower:
+        return "priority_change"
+    elif "tag" in fact_lower or "label" in fact_lower:
+        return "tag_update"
+    else:
+        return "other"
+
+
+async def hybrid_work_item_search_tool(
+    query: str,
+    limit: int,
+    keyword_weight: float,
+    openai_client,
+    database_pool
+) -> List[HybridSearchMatch]:
+    """
+    Combined semantic (pgvector) + keyword (TSVector) search.
+
+    Ideal for queries with specific terminology like "API timeout bug" or
+    "security issue in login flow" where both conceptual meaning and exact
+    keywords matter.
+
+    Args:
+        query: Search query (natural language and/or keywords)
+        limit: Maximum results to return (1-100)
+        keyword_weight: Balance between semantic and keyword (0.0-1.0)
+                       0.0 = pure semantic, 1.0 = pure keyword, 0.3 = 70% semantic + 30% keyword
+        openai_client: OpenAI client for embedding generation
+        database_pool: DatabasePool instance for direct database access
+
+    Returns:
+        Work item matches ordered by combined_score (highest first)
+
+    Raises:
+        ValueError: If invalid parameters or database_pool is None
+    """
+    try:
+        if not database_pool:
+            raise ValueError("Phase 2 not configured: database_pool is None")
+
+        # Validate parameters
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
+
+        if not 0.0 <= keyword_weight <= 1.0:
+            raise ValueError("keyword_weight must be between 0.0 and 1.0")
+
+        # Generate embedding using OpenAI
+        from .providers import generate_embedding
+        embedding = await generate_embedding(query, openai_client)
+
+        # Import hybrid search function
+        from .db_utils import hybrid_work_item_search
+
+        # Execute hybrid search
+        results = await hybrid_work_item_search(
+            database_pool,
+            embedding,
+            query,
+            limit,
+            keyword_weight
+        )
+
+        # Convert dict results to HybridSearchMatch objects
+        matches = [HybridSearchMatch(**result) for result in results]
+
+        return matches
+
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Hybrid search failed for query '{query}': {e}")
+        return []
+
+
+async def comprehensive_work_item_search_tool(
+    query: str,
+    use_semantic: bool,
+    use_graph: bool,
+    use_hybrid: bool,
+    limit: int,
+    openai_client,
+    supabase_client,
+    graphiti_client,
+    database_pool
+) -> ComprehensiveSearchResult:
+    """
+    Master search tool executing all three strategies in parallel.
+
+    Combines semantic search (pgvector), knowledge graph search (Graphiti),
+    and hybrid search (TSVector + pgvector) for complete context.
+
+    Args:
+        query: Search query
+        use_semantic: Enable semantic search (Phase 1 pgvector)
+        use_graph: Enable knowledge graph search (Graphiti)
+        use_hybrid: Enable hybrid search (TSVector + pgvector)
+        limit: Maximum results per strategy (1-50)
+        openai_client: OpenAI client for embeddings
+        supabase_client: Supabase client for semantic search
+        graphiti_client: GraphitiClient for graph search
+        database_pool: DatabasePool for hybrid search
+
+    Returns:
+        Comprehensive search results with all enabled strategies
+
+    Note:
+        - Executes enabled strategies in parallel using asyncio.gather()
+        - Returns partial results if any strategy fails (graceful degradation)
+        - Empty lists for disabled strategies
+    """
+    import asyncio
+
+    try:
+        # Validate limit
+        if not 1 <= limit <= 50:
+            raise ValueError("limit must be between 1 and 50")
+
+        # Build task list dynamically
+        tasks = []
+        strategies_used = []
+
+        if use_semantic:
+            # Use Phase 1 tool - semantic search with pgvector
+            from .providers import search_work_items_by_embedding
+
+            # Generate embedding once for efficiency
+            from .providers import generate_embedding
+            embedding = await generate_embedding(query, openai_client)
+
+            tasks.append(search_work_items_by_embedding(embedding, supabase_client, limit))
+            strategies_used.append("semantic")
+
+        if use_graph:
+            # Use Graphiti knowledge graph search
+            tasks.append(graphiti_client.search(query) if graphiti_client else asyncio.sleep(0))
+            strategies_used.append("graph")
+
+        if use_hybrid:
+            # Use hybrid TSVector + pgvector search
+            if not database_pool:
+                logger.warning("Hybrid search requested but database_pool is None")
+                tasks.append(asyncio.sleep(0))
+            else:
+                tasks.append(hybrid_work_item_search_tool(
+                    query, limit, 0.3, openai_client, database_pool
+                ))
+            strategies_used.append("hybrid")
+
+        # Execute all searches in parallel
+        if not tasks:
+            # No strategies enabled
+            return ComprehensiveSearchResult(
+                semantic_matches=[],
+                graph_relationships=[],
+                hybrid_matches=[],
+                total_results=0,
+                search_strategies_used=[],
+                combined_ranking=[]
+            )
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Extract results for each strategy
+        idx = 0
+        semantic_matches = []
+        graph_results = []
+        hybrid_matches = []
+
+        if use_semantic:
+            if not isinstance(results[idx], Exception):
+                semantic_matches = results[idx]
+            idx += 1
+
+        if use_graph:
+            if not isinstance(results[idx], Exception):
+                graph_results = results[idx]
+            idx += 1
+
+        if use_hybrid:
+            if not isinstance(results[idx], Exception):
+                hybrid_matches = results[idx]
+            idx += 1
+
+        # Convert graph results to relationships
+        graph_relationships = []
+        if graph_results:
+            for result in graph_results:
+                if isinstance(result, dict):
+                    fact_text = result.get("fact", "")
+                    rel = parse_graphiti_fact(fact_text, result)
+                    if rel:
+                        graph_relationships.append(rel)
+
+        # Merge and rank results (simple implementation - can be enhanced)
+        combined_ranking = merge_and_rank_results(
+            semantic_matches,
+            graph_relationships,
+            hybrid_matches
+        )
+
+        return ComprehensiveSearchResult(
+            semantic_matches=semantic_matches,
+            graph_relationships=graph_relationships,
+            hybrid_matches=hybrid_matches,
+            total_results=len(semantic_matches) + len(graph_relationships) + len(hybrid_matches),
+            search_strategies_used=strategies_used,
+            combined_ranking=combined_ranking[:limit]
+        )
+
+    except Exception as e:
+        logger.error(f"Comprehensive search failed for query '{query}': {e}")
+        return ComprehensiveSearchResult(
+            semantic_matches=[],
+            graph_relationships=[],
+            hybrid_matches=[],
+            total_results=0,
+            search_strategies_used=[],
+            combined_ranking=[]
+        )
+
+
+def merge_and_rank_results(
+    semantic_matches: List[WorkItemMatch],
+    graph_relationships: List[GraphRelationship],
+    hybrid_matches: List[HybridSearchMatch]
+) -> List[WorkItemMatch]:
+    """
+    Merge and rank results from all three search strategies.
+
+    Simple weighted ranking algorithm that prioritizes hybrid matches
+    (which already combine semantic + keyword), then semantic matches,
+    then work items mentioned in graph relationships.
+
+    Args:
+        semantic_matches: From semantic search
+        graph_relationships: From graph search
+        hybrid_matches: From hybrid search
+
+    Returns:
+        Merged and ranked list of WorkItemMatch objects
+    """
+    combined = []
+
+    # Add hybrid matches first (highest priority - already optimized)
+    for match in hybrid_matches:
+        combined.append(WorkItemMatch(
+            ado_id=match.ado_id,
+            title=match.title,
+            work_item_type=match.work_item_type,
+            similarity_score=match.combined_score,
+            recommendation="highly_relevant"
+        ))
+
+    # Add semantic matches (medium priority)
+    for match in semantic_matches:
+        # Avoid duplicates
+        if not any(c.ado_id == match.ado_id for c in combined):
+            combined.append(match)
+
+    # Extract work items from graph relationships (lower priority)
+    graph_work_items = set()
+    for rel in graph_relationships:
+        # Extract ADO IDs from relationship source/target
+        # Example: "Epic #1234" -> 1234
+        try:
+            source_id = int(rel.source_work_item.split('#')[-1])
+            target_id = int(rel.target_work_item.split('#')[-1])
+            graph_work_items.add(source_id)
+            graph_work_items.add(target_id)
+        except:
+            pass
+
+    # Sort by similarity_score (descending)
+    combined.sort(key=lambda x: x.similarity_score, reverse=True)
+
+    return combined
